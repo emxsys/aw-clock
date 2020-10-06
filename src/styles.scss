@@ -52,7 +52,7 @@ label {
   justify-content: center;
   align-items: stretch;
   background-color: var(--background-color);
-  font-size: 14px;
+  font-size: 20px;
   padding: 2px 1em;
   overflow: hidden;
   white-space: nowrap;
@@ -88,6 +88,7 @@ label {
   overflow: hidden;
   text-overflow: clip;
   user-select: none;
+  font-size: 20px;
 }
 
 #settings-btn {
