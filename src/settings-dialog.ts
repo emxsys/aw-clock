@@ -18,13 +18,16 @@
 */
 
 import { AppService } from './app.service';
+import { TimeFormat } from './clock';
 import { HourlyForecast } from './forecast';
 import $ from 'jquery';
 import { Keyboard } from './keyboard';
 import { isIE, isIOS, isSafari } from 'ks-util';
-import { apiServer, localServer, raspbianChromium, Settings, TimeFormat, toTimeFormat, updateTest } from './settings';
+import { apiServer, localServer, raspbianChromium, Settings, toTimeFormat, updateTest } from './settings';
 import { AWC_VERSION } from '../server/src/shared-types';
-import { adjustCityName, domAlert, domConfirm, htmlEncode, popKeydownListener, pushKeydownListener } from './util';
+import {
+  adjustCityName, decrementDialogCounter, domAlert, domConfirm, htmlEncode, incrementDialogCounter, popKeydownListener, pushKeydownListener
+} from './util';
 
 const ERROR_BACKGROUND = '#FCC';
 const WARNING_BACKGROUND = '#FFC';
@@ -413,6 +416,7 @@ export class SettingsDialog {
     this.dimmingStart.val(previousSettings.dimmingStart);
     this.dimmingEnd.val(previousSettings.dimmingEnd);
 
+    incrementDialogCounter();
     pushKeydownListener((event: KeyboardEvent) => {
       if (event.code === 'Escape') {
         event.preventDefault();
@@ -437,6 +441,7 @@ export class SettingsDialog {
     }));
 
     this.cancelButton.one('click', () => {
+      decrementDialogCounter();
       popKeydownListener();
       this.okButton.off('click', this.doOK);
       this.dialog.css('display', 'none');
@@ -479,6 +484,7 @@ export class SettingsDialog {
         this.longitude.trigger('focus'));
     }
     else {
+      decrementDialogCounter();
       popKeydownListener();
       this.okButton.off('click', this.doOK);
       this.dialog.css('display', 'none');

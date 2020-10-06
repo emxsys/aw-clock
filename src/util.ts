@@ -20,7 +20,7 @@
 import $ from 'jquery';
 import { KsDateTime, KsTimeZone } from 'ks-date-time-zone';
 import { cos_deg, Point, sin_deg } from 'ks-math';
-import { asLines, htmlEscape, isEdge, isSafari, last, padLeft, processMillis, toNumber } from 'ks-util';
+import { asLines, htmlEscape, isEdge, isSafari, last, padLeft, parseColor, processMillis, toNumber } from 'ks-util';
 
 export type KeyListener = (event: KeyboardEvent) => void;
 
@@ -260,6 +260,19 @@ const dialogStack: DialogInfo[] = [];
 const initDone = new Set<string>();
 const OUTER_CLICK_DELAY = 500;
 let openTime = 0;
+let otherDialogCount = 0;
+
+export function anyDialogOpen(): boolean {
+  return dialogStack.length > 0 || otherDialogCount > 0;
+}
+
+export function incrementDialogCounter() {
+  ++otherDialogCount;
+}
+
+export function decrementDialogCounter() {
+  otherDialogCount = Math.max(otherDialogCount - 1, 0);
+}
 
 function checkFont() {
   const dialogInfo = last(dialogStack);
@@ -300,9 +313,12 @@ export function displayHtml(dialogId: string, html: string, background = 'white'
   const closer = $(`${id} > div > .dialog-close`);
   const textArea = $(`${id} > div > .dialog-text`);
   const fader = (/(<div class="dialog-fader"[^<]+?<\/div>)\s*$/.exec(textArea.html()) ?? [])[1] ?? '';
+  const rgb = parseColor(background);
 
-  if (fader)
+  if (fader) {
+    textArea.css('--fade-from', `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0)`);
     textArea.css('--fade-to', background);
+  }
 
   textArea.parent().css('background-color', background);
   textArea.html(html + fader);
@@ -312,15 +328,18 @@ export function displayHtml(dialogId: string, html: string, background = 'white'
   dialogStack.push({ textArea });
   checkFont();
 
-  const hide = () => {
+  const hide = (evt?: any) => {
+    if (evt?.preventDefault)
+      evt.preventDefault();
+
     popKeydownListener();
     dialogStack.pop();
     dialog.hide();
   };
 
-  pushKeydownListener((event: KeyboardEvent) => {
-    if (event.code === 'Enter' || event.code === 'Escape') {
-      event.preventDefault();
+  pushKeydownListener((evt: KeyboardEvent) => {
+    if (evt.code === 'Enter' || evt.code === 'Escape') {
+      evt.preventDefault();
       hide();
     }
   });
@@ -332,17 +351,22 @@ export function displayHtml(dialogId: string, html: string, background = 'white'
     let scrollY: number;
     let gotTouch = false;
 
-    const mouseDown = (y: number) => {
+    const mouseDown = (target: HTMLElement, offsetX: number, y: number) => {
+      // Ignore clicks inside the scrollbar (if present)
+      if (offsetX > target.clientWidth)
+        return;
+
       dragging = true;
       lastY = downY = y;
       scrollY = textArea.scrollTop();
     };
-    textArea.on('mousedown', event => mouseDown(event.pageY));
+
+    textArea.on('mousedown', event => mouseDown(event.target, event.offsetX, event.pageY));
     textArea.on('touchstart', event => event.touches[0] &&
-      mouseDown(event.touches[0].pageY));
+      mouseDown(event.target, event.touches[0].pageX - event.target.getBoundingClientRect().left, event.touches[0].pageY));
 
     const mouseMove = (y: number) => {
-      if (!dragging || y === lastY)
+      if (!gotTouch || !dragging || y === lastY)
         return;
 
       const dy = y - downY;
@@ -350,6 +374,7 @@ export function displayHtml(dialogId: string, html: string, background = 'white'
       lastY = y;
       textArea.scrollTop(scrollY - dy);
     };
+
     textArea.on('mousemove', event => mouseMove(event.pageY));
     textArea.on('touchmove', event => {
       if (!gotTouch) {
@@ -360,25 +385,20 @@ export function displayHtml(dialogId: string, html: string, background = 'white'
       mouseMove(event.touches[0]?.pageY ?? lastY);
     });
 
-    const mouseUp = (y: number) => {
-      if (dragging) {
-        const dy = (y ?? downY) - downY;
-
-        textArea.scrollTop(scrollY - dy);
-      }
-
+    const mouseUp = () => {
       dragging = false;
       lastY = downY = undefined;
     };
-    textArea.on('mouseup', event => mouseUp(event.pageY));
-    textArea.on('touchend', event => mouseUp(event.touches[0]?.pageY ?? lastY));
-    textArea.on('touchcancel', () => mouseUp(null));
+
+    textArea.on('mouseup', () => mouseUp());
+    textArea.on('touchend', () => mouseUp());
+    textArea.on('touchcancel', () => mouseUp());
 
     closer.on('click', hide);
     textArea.parent().on('click', event => event.stopPropagation());
-    dialog.on('click', () => {
+    dialog.on('click', evt => {
       if (processMillis() >= openTime + OUTER_CLICK_DELAY)
-        hide();
+        hide(evt);
     });
 
     initDone.add(dialogId);
