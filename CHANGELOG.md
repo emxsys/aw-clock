@@ -1,3 +1,12 @@
+## 2.7.3
+
+* Timezone database update (tz 2020b).
+
+## 2.7.2
+
+* Documentation update, outlining the physical construction of the clock using the included 3D stand design.
+* Package updates.
+
 ## 2.7.1
 
 * Fixed Safari transparent gradient problem.
